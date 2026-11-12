@@ -156,7 +156,7 @@
     audioInit();
     G.tries++;
     G.sim = Sim.create(C, fixedSeed != null ? fixedSeed + G.tries - 1 : undefined);
-    G.mode = 'intro'; G.paused = false; G.introT = 0;
+    G.mode = 'intro'; G.paused = false; G.introT = G.tries === 1 ? PRO : 0;
     G.introLen = G.tries === 1 ? 7.2 : 1.7;
     G.fx = []; G.banner = null; G.bodySay = null; G.saidAt = {}; G.shake = 0;
     G.endT = 0; G.panelShown = false; G.beatT = 0;
@@ -164,6 +164,8 @@
   }
   function skipIntro() {
     if (G.mode !== 'intro') return;
+    // 1回目：前日譚 → 台詞の手前へ。2回目：最後まで
+    if (G.tries === 1 && G.introT < LINE_AT) { G.introT = LINE_AT; G.fx = []; G.bodySay = null; return; }
     if (G.introT < G.introLen - 0.5) G.introT = G.introLen - 0.5;
   }
   function beginPlay() {
@@ -217,27 +219,61 @@
     }
   }
 
+  // 前日譚（初回のみ）：本体が分身の術 → 刺客が迷わず本体を斬る。
+  // introT が負の区間を使い、0 以降は従来の冒頭（台詞）に続く。
+  const PRO = -3.1;               // 前日譚の開始時刻
+  const P_SEAL = PRO + 0.5;        // 「分身の術！」
+  const P_POOF = PRO + 1.6;        // 煙とともに分身が現れる
+  const P_TELE = PRO + 1.9;        // 刺客、本体に狙いを定める
+  const P_DASH = PRO + 2.75;       // 突進
+  const P_HIT = PRO + 2.9;         // 本体、斬られる
+  const LINE_AT = 1.5;             // 台詞の少し前（前日譚を飛ばしたときの行き先）
+  const proNear = () => ({ x: C.layout.body.x + 75, y: C.layout.body.y - 28 });
+  function inPrologue() { return G.mode === 'intro' && G.tries === 1 && G.introT < P_HIT; }
+
   // 冒頭の段取り
   function introEvents() {
     const t = G.introT, first = G.tries === 1, s = G.sim;
     const once = (k, fn) => { if (!G.saidAt['i_' + k]) { G.saidAt['i_' + k] = 1; fn(); } };
-    const poofAt = first ? [1.0, 1.15, 1.3] : [0.05, 0.12, 0.19];
-    s.clones.forEach((c, i) => { if (t >= poofAt[i]) once('p' + i, () => { addSmoke(c.x, c.y, 0.6); sfx.poof(); }); });
+    const poofAt = first ? [P_POOF, P_POOF, P_POOF] : [0.05, 0.12, 0.19];
+    const skipped = first && t >= LINE_AT && !G.saidAt.i_seal;
+    s.clones.forEach((c, i) => { if (t >= poofAt[i]) once('p' + i, () => { if (!skipped) { addSmoke(c.x, c.y, 0.6); sfx.poof(); } }); });
     if (first) {
-      if (t >= 0.2) once('g', () => say('ぐ……ふっ', 1.6));
+      const b = s.body;
+      if (t >= P_SEAL) once('seal', () => { if (t < LINE_AT) { say('分身の術！', 1.1); tone(880, 0.25, 'triangle', 0.1); } });
+      if (t >= P_POOF) once('bpoof', () => { if (t < LINE_AT) addSmoke(b.x, b.y - 4, 0.7); });
+      if (t >= P_POOF + 0.35) once('boast', () => { if (t < LINE_AT) say('ふふ……どれが本物か分かるまい', 1.0); });
+      if (t >= P_TELE) once('tele', () => { if (t < LINE_AT) sfx.warn(); });
+      if (t >= P_DASH) once('dash', () => { if (t < LINE_AT) sfx.dash(); });
+      if (t >= P_HIT) once('hit', () => {
+        if (t >= LINE_AT) return;
+        sfx.hit(true); G.shake = 0.15;
+        G.fx.push({ kind: 'spark', x: b.x + 4, y: b.y - 4, t: 0, dur: 0.35, crit: true });
+        pushText(b.x + 30, b.y - 50, '斬', { size: 34, color: '#ffdddd', font: SERIF, stroke: '#000', dur: 0.9, rise: 6 });
+      });
+      if (t >= P_HIT + 0.35) once('g', () => { if (t < LINE_AT) say('ぐ……ふっ', 1.3); });
       if (t >= 5.7) once('e', () => noise(0.3, 0.25, 900, 'bandpass', 300));
       if (t >= 5.6) once('b', () => say('ひゅー……ひゅー……', 1.6));
     }
   }
   function introClonesVisible(i) {
     if (G.mode !== 'intro') return true;
-    const at = G.tries === 1 ? [1.0, 1.15, 1.3] : [0.05, 0.12, 0.19];
+    const at = G.tries === 1 ? [P_POOF, P_POOF, P_POOF] : [0.05, 0.12, 0.19];
     return G.introT >= at[i] + 0.08;
   }
   function introEnemyPos() {
     const s = G.sim, L = C.layout;
     if (G.mode !== 'intro' || G.tries > 1) return null;
-    const near = { x: L.body.x + 105, y: L.body.y + 42 };
+    const near = proNear();
+    // 前日譚：開始位置で構え → 本体めがけて一直線
+    if (G.introT < P_DASH) {
+      return { x: s.enemy.x, y: s.enemy.y, face: Math.atan2(L.body.y - s.enemy.y, L.body.x - s.enemy.x), wind: G.introT >= P_TELE };
+    }
+    if (G.introT < P_HIT) {
+      const k = (G.introT - P_DASH) / (P_HIT - P_DASH);
+      return { x: s.enemy.x + (near.x - s.enemy.x) * k, y: s.enemy.y + (near.y - s.enemy.y) * k,
+        face: Math.atan2(L.body.y - s.enemy.y, L.body.x - s.enemy.x), dashing: true };
+    }
     // 「……で？」のあと、大きく跳び退いて間合いを取る
     const k = Math.max(0, Math.min(1, (G.introT - 5.7) / 0.7));
     const e = k * (2 - k);
@@ -405,8 +441,9 @@
     if (G.mode === 'title') {
       drawTitleScene();
     } else if (s) {
-      drawBody(s);
+      if (inPrologue()) drawStandingBody(s); else drawBody(s);
       if (G.mode === 'play') drawTelegraph(s);
+      if (G.mode === 'intro' && G.tries === 1) drawPrologueMarks(s);
       for (const p of s.shots) drawShuriken(p.x, p.y, p.spin, 7);
       s.clones.forEach((c) => drawClone(s, c));
       drawEnemy(s);
@@ -421,6 +458,62 @@
     if (G.banner) drawBanner();
     if (G.mode === 'play' && G.paused) drawPause();
     if (G.mode === 'end' && G.panelShown) drawResult();
+  }
+
+  // 前日譚：立っている本体（分身と同じ忍び装束だが赤い襟巻き）
+  function drawStandingBody(s) {
+    const b = s.body, t = G.clock, r = C.clone.radius + 1;
+    const x = b.x, y = b.y - 4;
+    const face = Math.atan2(s.enemy.y - y, s.enemy.x - x), back = face + Math.PI;
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(3, 5, r + 3, r, 0, 0, Math.PI * 2); ctx.fill();
+    // 印を結ぶ光
+    if (G.introT >= P_SEAL && G.introT < P_POOF) {
+      const k = (G.introT - P_SEAL) / (P_POOF - P_SEAL);
+      ctx.strokeStyle = `rgba(255,230,140,${0.4 + 0.4 * Math.sin(t * 20)})`; ctx.lineWidth = 2;
+      for (let q = 0; q < 3; q++) { ctx.beginPath(); ctx.arc(0, 0, r + 6 + q * 9 + k * 10, 0, Math.PI * 2); ctx.stroke(); }
+    }
+    ctx.strokeStyle = '#c4302b'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(Math.cos(back) * 8, Math.sin(back) * 8);
+    ctx.quadraticCurveTo(Math.cos(back) * 20 + Math.sin(t * 8) * 3, Math.sin(back) * 20, Math.cos(back) * 28, Math.sin(back) * 28); ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = '#3a3946'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#c4302b'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#2c2b33'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b9c3cf'; ctx.beginPath(); ctx.arc(Math.cos(face) * 6, Math.sin(face) * 6, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#a8231f'; roundRect(x - 34, y - 46, 48, 22, 4); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold 14px ${SERIF}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('本体', x - 10, y - 35);
+    if (G.bodySay) {
+      const k = G.bodySay.t, a = Math.min(1, k * 6, (G.bodySay.dur - k) * 4);
+      speech(x - 10, y - 52, G.bodySay.text, a, 15, '#fff8f0', '#3a2a24');
+    }
+  }
+
+  // 前日譚の予告線と、分身たちの「！？」
+  function drawPrologueMarks(s) {
+    const t = G.introT;
+    if (t >= P_TELE && t < P_HIT) {
+      const n = proNear(), e = s.enemy, hw = C.enemy.dash.halfWidth;
+      const a = Math.atan2(n.y - e.y, n.x - e.x), len = Math.hypot(n.x - e.x, n.y - e.y) + 40;
+      ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(a);
+      ctx.fillStyle = 'rgba(220,30,30,0.22)'; ctx.fillRect(0, -hw, len, hw * 2);
+      ctx.strokeStyle = 'rgba(170,10,10,0.9)'; ctx.lineWidth = 2.5; ctx.strokeRect(0, -hw, len, hw * 2);
+      ctx.restore();
+    }
+    if (t >= P_HIT && t < LINE_AT + 0.2) {
+      s.clones.forEach((c, i) => {
+        const k = t - P_HIT - i * 0.12;
+        if (k < 0) return;
+        ctx.globalAlpha = Math.min(1, k * 6);
+        ctx.fillStyle = '#c0281f'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        ctx.font = `bold 20px ${SANS}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const yy = c.y - 50 - Math.min(1, k * 8) * 6;
+        ctx.strokeText('！？', c.x, yy); ctx.fillText('！？', c.x, yy);
+        ctx.globalAlpha = 1;
+      });
+    }
   }
 
   // 倒れた本体：赤い襟巻き、横たわる。呼吸と小さな痙攣で生きていると分かる
@@ -576,7 +669,7 @@
   function drawEnemy(s) {
     let e = s.enemy;
     const ip = introEnemyPos();
-    if (ip) e = Object.assign({}, e, ip, { state: 'stalk' });
+    if (ip) e = Object.assign({}, e, ip, { state: ip.wind ? 'dashWind' : ip.dashing ? 'dash' : 'stalk' });
     const t = G.clock;
     const dead = G.mode === 'end' && s.result === 'win';
     ctx.save();
