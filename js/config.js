@@ -36,7 +36,7 @@ var CONFIG = {
   },
 
   shuriken: {
-    count: 3, // 分身ひとりあたりの所持数（回復しない）
+    count: 5, // 分身ひとりあたりの所持数（回復しない）
     speed: 660,
     radius: 6,
     cooldown: 0.4,

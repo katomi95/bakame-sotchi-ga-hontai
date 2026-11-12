@@ -663,7 +663,7 @@
       ctx.beginPath(); ctx.moveTo(c.x - 6, by - 17); ctx.lineTo(c.x + 6, by - 17); ctx.lineTo(c.x, by - 11); ctx.closePath(); ctx.fill();
     }
     // 手裏剣の残り（頭上に小さく）
-    for (let k = 0; k < c.shuriken; k++) drawShuriken(c.x + 15 + k * 8, by + 1, 0.4, 3.2);
+    for (let k = 0; k < c.shuriken; k++) drawShuriken(c.x + 15 + k * 7, by + 1, 0.4, 3.2);
   }
 
   function drawEnemy(s) {
@@ -910,7 +910,8 @@
       // 手裏剣
       const total = C.shuriken.count;
       for (let k = 0; k < total; k++) {
-        const sx = x + 118 + k * 20, sy = y + h / 2;
+        const step = Math.min(20, 66 / Math.max(1, total - 1));
+        const sx = x + 110 + k * step, sy = y + h / 2;
         if (c.alive && k < c.shuriken) drawShuriken(sx, sy, 0.3, 7);
         else {
           ctx.strokeStyle = '#444'; ctx.lineWidth = 1;

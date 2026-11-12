@@ -59,20 +59,21 @@ console.log('■ ルール');
   Sim.step(s, DT, { throw: true, aim }); run(s, 0.5);
   Sim.step(s, DT, { select: 1 });
   Sim.step(s, DT, { throw: true, aim }); run(s, 0.5);
+  const N = BASE.shuriken.count;
   const n = s.clones.map((c) => c.shuriken).join(',');
-  ok(n === '1,2,3', `手裏剣の残数が分身ごとに減る（${n}）`);
+  ok(n === [N - 2, N - 1, N].join(','), `手裏剣の残数が分身ごとに減る（${n}）`);
   Sim.step(s, DT, { select: 0 });
-  Sim.step(s, DT, { throw: true, aim }); run(s, 0.5);
+  for (let k = 0; k < N - 2; k++) { Sim.step(s, DT, { throw: true, aim }); run(s, 0.5); }
   s.events.length = 0;
   Sim.step(s, DT, { throw: true, aim }); run(s, 0.5);
   ok(s.clones[0].shuriken === 0 && s.events.some((e) => e.type === 'empty'), '0枚では投げられない（empty）');
-  let gained = false; run(s, 30, (ss) => { if (ss.clones.some((c, i) => c.shuriken > [0, 2, 3][i])) gained = true; return {}; });
+  let gained = false; run(s, 30, (ss) => { if (ss.clones.some((c, i) => c.shuriken > [0, N - 1, N][i])) gained = true; return {}; });
   ok(!gained, '時間経過で回復しない');
   const s2 = Sim.create(C(), 5);
   s2.active = 2; s2.clones[2].x = s2.enemy.x - 60; s2.clones[2].y = s2.enemy.y; s2.enemy.think = 0;
   run(s2, 2);
-  ok(!s2.clones[2].alive && s2.clones[2].shuriken === 0 && s2.clones[2].lostShuriken === 3, '消滅した分身の手裏剣は失われる');
-  ok(s2.clones[s2.active].shuriken === 3, '引き継いだ分身は自分の3枚のまま');
+  ok(!s2.clones[2].alive && s2.clones[2].shuriken === 0 && s2.clones[2].lostShuriken === BASE.shuriken.count, '消滅した分身の手裏剣は失われる');
+  ok(s2.clones[s2.active].shuriken === BASE.shuriken.count, `引き継いだ分身は自分の${BASE.shuriken.count}枚のまま`);
 }
 { // 決着
   const s = Sim.create(C(), 6);
