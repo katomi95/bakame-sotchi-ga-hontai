@@ -60,11 +60,11 @@ var CONFIG = {
       windup: 1.0,
       track: 0.55, // ここまで狙いを追う（以降は方向固定＝避けどき）
       speed: 980,
-      overshoot: 160, // 狙った位置からさらに踏み込む距離
-      minLen: 200,
-      maxLen: 540,
+      overshoot: 110, // 狙った位置からさらに踏み込む距離
+      minLen: 170,
+      maxLen: 400,
       minRange: 120,
-      maxRange: 520,
+      maxRange: 380,
       halfWidth: 26, // 当たり幅（予告の帯と同じ）
       recover: 1.2, // 隙（避けた本人は届きにくい）
     },
@@ -72,8 +72,8 @@ var CONFIG = {
     // 範囲薙ぎ払い：近くの分身をまとめて斬る。密集対策
     sweep: {
       windup: 0.8,
-      radius: 118, // 予告の円と同じ
-      trigger: 135, // この距離以内に分身がいると選びやすい
+      radius: 92, // 予告の円と同じ
+      trigger: 110, // この距離以内に分身がいると選びやすい
       crowd: 2, // この人数が近くにいると必ず薙ぎ払う
       active: 0.12,
       recover: 0.9,

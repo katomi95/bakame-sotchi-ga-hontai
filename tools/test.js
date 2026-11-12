@@ -230,7 +230,7 @@ function decoy(useSwitch) {
   const s = Sim.create(C(), 77);
   s.enemy.x = 700; s.enemy.y = 300; s.enemy.think = 0;
   s.clones[0].x = 420; s.clones[0].y = 300;   // 囮（狙われる）
-  s.clones[1].x = 250; s.clones[1].y = 362;   // 待ち伏せ（突進の帯の外、終点の横）
+  s.clones[1].x = 420 - s.C.enemy.dash.overshoot - 10; s.clones[1].y = 300 + s.C.enemy.dash.halfWidth + s.C.clone.radius + 22;   // 待ち伏せ（突進の帯の外、終点の横）
   s.clones[2].x = 120; s.clones[2].y = 120;
   let hp0 = null, phase = 'wait';
   for (let i = 0; i < 5 / DT && s.phase === 'play'; i++) {
