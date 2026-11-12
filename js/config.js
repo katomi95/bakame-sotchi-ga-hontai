@@ -40,8 +40,8 @@ var CONFIG = {
     speed: 660,
     radius: 6,
     cooldown: 0.4,
-    damage: 1,
-    openDamage: 2,
+    damage: 3, // 通常時（刀の3倍。枚数が少ないぶん一発が重い）
+    openDamage: 5, // 隙に当てたとき
     life: 1.6,
   },
 
